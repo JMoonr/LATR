@@ -1,0 +1,124 @@
+# [ICCV2023 Oral] LATR: 3D Lane Detection from Monocular Images with Transformer
+
+Official PyTorch implementation of [LATR: 3D Lane Detection from Monocular Images with Transformer](https://arxiv.org/abs/2308.04583)
+
+![fig2](/assets/fig2.png)  
+
+**Code will be released.**
+
+# Benchmark
+
+
+## OpenLane
+
+| Models | F1 | Accuracy | X error <br> near \| far | Z-error <br> near \| far |
+| ----- | -- | -------- | ------- | ------- |
+| 3DLaneNet | 44.1 | - | 0.479 \| 0.572 | 0.367 \| 0.443 |
+| GenLaneNet | 32.3 | - | 0.593 \| 0.494 | 0.140 \| 0.195 |
+| Cond-IPM | 36.3 | - | 0.563 \| 1.080 | 0.421 \| 0.892 |
+| PersFormer | 50.5 | 89.5 | 0.319 \| 0.325 | 0.112 \| 0.141 |
+| CurveFormer | 50.5 | - | 0.340 \| 0.772 | 0.207 \| 0.651 |
+| PersFormer-Res50 | 53.0 | 89.2 | 0.321 \| 0.303 | 0.085 \| 0.118 |
+| **LATR-Lite** | 61.5 | 91.9 | 0.225 \| 0.249 | 0.073 \| 0.106 |
+| **LATR** | 61.9 | 92.0 | 0.219 \| 0.259 | 0.075 \| 0.104 |
+
+
+## Apollo
+
+Plaes kindly refer to our paper for the performance on other scenes.
+
+<table>
+    <tr>
+        <td>Scene</td>
+        <td>Models</td>
+        <td>F1</td>
+        <td>AP</td>
+        <td>X error <br> near | far </td>
+        <td>Z error <br> near | far </td>
+    </tr>
+    <tr>
+        <td rowspan="8">Balanced Scene</td>
+        <td>3DLaneNet</td>
+        <td>86.4</td>
+        <td>89.3</td>
+        <td>0.068 | 0.477</td>
+        <td>0.015 | 0.202</td>
+    </tr>
+    <tr>
+        <td>GenLaneNet</td>
+        <td>88.1</td>
+        <td>90.1</td>
+        <td>0.061 | 0.496</td>
+        <td>0.012 | 0.214</td>
+    </tr>
+    <tr>
+        <td>CLGo</td>
+        <td>91.9</td>
+        <td>94.2</td>
+        <td>0.061 | 0.361</td>
+        <td>0.029 | 0.250</td>
+    </tr>
+    <tr>
+        <td>PersFormer</td>
+        <td>92.9</td>
+        <td>-</td>
+        <td>0.054 | 0.356</td>
+        <td>0.010 | 0.234</td>
+    </tr>
+    <tr>
+        <td>GP</td>
+        <td>91.9</td>
+        <td>93.8</td>
+        <td>0.049 | 0.387</td>
+        <td>0.008 | 0.213</td>
+    </tr>
+    <tr>
+        <td>CurveFormer</td>
+        <td>95.8</td>
+        <td>97.3</td>
+        <td>0.078 | 0.326</td>
+        <td>0.018 | 0.219</td>
+    </tr>
+    <tr>
+        <td><b>LATR-Lite</b></td>
+        <td>96.5</td>
+        <td>97.8</td>
+        <td>0.035 | 0.283</td>
+        <td>0.012 | 0.209</td>
+    </tr>
+    <tr>
+        <td><b>LATR</b?</td>
+        <td>96.8</td>
+        <td>97.9</td>
+        <td>0.022 | 0.253</td>
+        <td>0.007 | 0.202</td>
+    </tr>
+</table>
+
+
+## ONCE
+
+| Method     | F1  | Precision(%) | Recall(%) | CD error(m) |
+| :- | :- | :- | :- | :- |   
+| 3DLaneNet  | 44.73 | 61.46 | 35.16 | 0.127 |
+| GenLaneNet | 45.59 | 63.95 | 35.42 | 0.121 |
+| SALAD <ONCE-3DLane> | 64.07 | 75.90 | 55.42 | 0.098 |
+| PersFormer | 72.07 | 77.82 | 67.11 | 0.086 |
+| **LATR** | 80.59 | 86.12 | 75.73 | 0.052 |
+
+## Acknowledgment
+
+This library is inspired by [OpenLane](https://github.com/OpenDriveLab/PersFormer_3DLane), [GenLaneNet](https://github.com/yuliangguo/Pytorch_Generalized_3D_Lane_Detection), [mmdetection3d](https://github.com/open-mmlab/mmdetection3d), [SparseInst](https://github.com/hustvl/SparseInst), [ONCE](https://github.com/once-3dlanes/once_3dlanes_benchmark) and many other related works, we thank them for sharing the code and datasets.
+
+
+## Citation
+If you find LATR is useful, please cite:
+
+```tex
+@article{luo2023latr,
+  title={LATR: 3D Lane Detection from Monocular Images with Transformer},
+  author={Luo, Yueru and Zheng, Chaoda and Yan, Xu and Kun, Tang and Zheng, Chao and Cui, Shuguang and Li, Zhen},
+  journal={arXiv preprint arXiv:2308.04583},
+  year={2023}
+}
+```
