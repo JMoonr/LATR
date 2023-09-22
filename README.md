@@ -4,12 +4,38 @@ Official PyTorch implementation of [LATR: 3D Lane Detection from Monocular Image
 
 ![fig2](/assets/fig2.png)  
 
-**Code will be released.**
+- [ ] Training code [Before Nov.]
+- [x] Evaluation code
 
-# Benchmark
+## Environments
+
+Please follow [install](./docs/install.md) to install required packages.
+
+## Data
+
+Please follow [data preparation](./docs/data_preparation.md) to download dataset.
+
+## Pretrained Models
+
+Note that the performance of pretrained model is different from our paper due to code refactoration and optimization. All models are uploaded to [google drive](https://drive.google.com/drive/folders/1AhvLvE84vayzFxa0teRHYRdXz34ulzjB?usp=sharing).
+
+| Dataset | Pretrained | Metrics | md5 |
+| - | - | - | - |
+| OpenLane-1000 | [Google Drive](https://drive.google.com/file/d/1jThvqnJ2cUaAuKdlTuRKjhLCH0Zq62A1/view?usp=sharing) | F1=0.6297 | d8ecb900c34fd23a9e7af840aff00843 |
+| OpenLane-1000 (Lite version) | [Google Drive](https://drive.google.com/file/d/1WD5dxa6SI2oR9popw3kO2-7eGM2z-IHY/view?usp=sharing) | F1=0.6212 | 918de41d0d31dbfbecff3001c49dc296 |
+| ONCE | [Google Drive](https://drive.google.com/file/d/12kXkJ9tDxm13CyFbB1ddt82lJZkYEicd/view?usp=sharing) | F1=0.8125 | 65a6958c162e3c7be0960bceb3f54650 |
+| Apollo-balance | [Google Drive](https://drive.google.com/file/d/1hGyNrYi3wAQaKbC1mD_18NG35gdmMUiM/view?usp=sharing) | F1=0.9697 | 551967e8654a8a522bdb0756d74dd1a2 |
+| Apollo-rare | [Google Drive](https://drive.google.com/file/d/19VVBaWBnWiEqGx1zJaeXF_1CKn88G5v0/view?usp=sharing) | F1=0.9641 | 184cfff1d3097a9009011f79f4594138 |
+| Apollo-visual | [Google Drive](https://drive.google.com/file/d/1ZzaUODYK2dyiG_2bDXe5tiutxNvc71M2/view?usp=sharing) | F1=0.9611 | cec4aa567c264c84808f3c32f5aace82 |
 
 
-## OpenLane
+## Train & Evaluation
+
+Please download [pretrain models](#pretrained-models) into `./pretrained_models` first and then follow [train and evaluation](./docs/train_eval.md#evaluation) for evaluation.
+
+## Benchmark
+
+### OpenLane
 
 | Models | F1 | Accuracy | X error <br> near \| far | Z-error <br> near \| far |
 | ----- | -- | -------- | ------- | ------- |
@@ -23,7 +49,7 @@ Official PyTorch implementation of [LATR: 3D Lane Detection from Monocular Image
 | **LATR** | 61.9 | 92.0 | 0.219 \| 0.259 | 0.075 \| 0.104 |
 
 
-## Apollo
+### Apollo
 
 Plaes kindly refer to our paper for the performance on other scenes.
 
@@ -96,7 +122,7 @@ Plaes kindly refer to our paper for the performance on other scenes.
 </table>
 
 
-## ONCE
+### ONCE
 
 | Method     | F1  | Precision(%) | Recall(%) | CD error(m) |
 | :- | :- | :- | :- | :- |   
