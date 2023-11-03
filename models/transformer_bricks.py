@@ -439,8 +439,8 @@ class LATRTransformerDecoder(TransformerLayerSequence):
             xmin, ymin, xmax, ymax, init_z,
             bev_w, bev_h, query.device)
         init_ref_3d = init_ref_3d[None, ...].repeat(batch_size, 1, 1, 1)
-        ref_3d_home = F.pad(init_ref_3d, (0, 1), value=1)
-        init_ref_3d_home = ref_3d_home.clone()
+        ref_3d_homo = F.pad(init_ref_3d, (0, 1), value=1)
+        init_ref_3d_homo = ref_3d_homo.clone()
         init_M = torch.eye(4, device=query.device).float()
         M = init_M[None, ...].repeat(batch_size, 1, 1)
 
@@ -450,7 +450,7 @@ class LATRTransformerDecoder(TransformerLayerSequence):
         outputs_coords = []
         for layer_idx, layer in enumerate(self.layers):
             coords_img = ground2img(
-                ref_3d_home, *img_feats[0].shape[-2:],
+                ref_3d_homo, *img_feats[0].shape[-2:],
                 lidar2img, pad_shape)
             if layer_idx > 0:
                 project_results.append(coords_img.clone())
@@ -478,8 +478,8 @@ class LATRTransformerDecoder(TransformerLayerSequence):
             if layer_idx < len(self.layers) - 1:
                 input_feat = torch.cat([img_feats[0], coords_img], dim=1)
                 M = M.detach() @ self.pred2M(self.gflat_pred_layer(input_feat).squeeze(-1).squeeze(-1))
-                ref_3d_home = (init_ref_3d_home.flatten(1, 2) @ M.permute(0, 2, 1)
-                              ).view(*ref_3d_home.shape)
+                ref_3d_homo = (init_ref_3d_homo.flatten(1, 2) @ M.permute(0, 2, 1)
+                              ).view(*ref_3d_homo.shape)
 
             if self.post_norm is not None:
                 intermediate.append(self.post_norm(query))

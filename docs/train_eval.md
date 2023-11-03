@@ -1,8 +1,46 @@
 # Training and Evaluation
 
-## Train (before Nov.)
+## Train
 
-We will release training configuration and scripts before Nov, please stay tuned.
+### Openlane
+
+- Base version:
+
+```bash
+CUDA_VISIBLE_DEVICES='0,1,2,3' python -m torch.distributed.launch --nproc_per_node 4 main.py --config config/release_iccv/latr_1000_baseline.py
+```
+
+- lite version:
+
+```bash
+CUDA_VISIBLE_DEVICES='0,1,2,3' python -m torch.distributed.launch --nproc_per_node 4 main.py --config config/release_iccv/latr_1000_baseline_lite.py
+```
+
+### ONCE
+
+```bash
+CUDA_VISIBLE_DEVICES='0,1,2,3' python -m torch.distributed.launch --nproc_per_node 4 main.py --config config/release_iccv/once.py
+```
+
+### Apollo
+
+- Balanced Scene
+
+```bash
+CUDA_VISIBLE_DEVICES='0,1,2,3' python -m torch.distributed.launch --nproc_per_node 4 main.py --config config/release_iccv/apollo_standard.py
+```
+
+- Rare Subset
+
+```bash
+CUDA_VISIBLE_DEVICES='0,1,2,3' python -m torch.distributed.launch --nproc_per_node 4 main.py --config config/release_iccv/apollo_rare.py
+```
+
+- Visual Variations
+
+```bash
+CUDA_VISIBLE_DEVICES='0,1,2,3' python -m torch.distributed.launch --master_port=29284 --nproc_per_node 4 main.py --config config/release_iccv/apollo_illu.py
+```
 
 ## Evaluation
 

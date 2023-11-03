@@ -73,6 +73,11 @@ latr_cfg = dict(
     head=dict(
         pt_as_query=True,
         num_pt_per_line=num_pt_per_line,
+        xs_loss_weight=2.0,
+        zs_loss_weight=10.0,
+        vis_loss_weight=1.0,
+        cls_loss_weight=10,
+        project_loss_weight=1.0,
     ),
     trans_params=dict(init_z=0, bev_h=150, bev_w=70),
 )
@@ -139,7 +144,11 @@ sparse_ins_decoder=Config(
             num_classes=num_category,
             num_convs=4,
             output_iam=True,
-            scale_factor=1., 
+            scale_factor=1.,
+            ce_weight=2.0,
+            mask_weight=5.0,
+            dice_weight=2.0,
+            objectness_weight=1.0,
         ),
         sparse_decoder_weight=5.0,
 ))
@@ -147,3 +156,13 @@ sparse_ins_decoder=Config(
 nepochs = 24
 resize_h = 720
 resize_w = 960
+
+eval_freq = 8
+optimizer_cfg = dict(
+    type='AdamW',
+    lr=2e-4,
+    paramwise_cfg=dict(
+        custom_keys={
+            'sampling_offsets': dict(lr_mult=0.1),
+        }),
+    weight_decay=0.01)

@@ -28,18 +28,14 @@ import torch.nn.init as init
 import torch.optim
 from torch.optim import lr_scheduler
 import os.path as ops
-from nms import nms
-from mpl_toolkits.mplot3d import Axes3D
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+
+
 from scipy.interpolate import interp1d
 from scipy.special import softmax
 import logging, datetime
 
 from experiments.gpu_utils import is_main_process
 from mmdet.utils import get_root_logger as get_mmdet_root_logger
-
-plt.rcParams['figure.figsize'] = (35, 30)
 
 
 def create_logger(args):
@@ -187,56 +183,6 @@ def resample_laneline_in_y_with_vis(input_lane, y_steps, vis_vec):
     return np.array([x_values, y_values, z_values]).T
 
 
-def homography_im2ipm_norm(top_view_region, org_img_size, crop_y, resize_img_size, cam_pitch, cam_height, K, E=None):
-    """
-        Compute the normalized transformation such that image region are mapped to top_view region maps to
-        the top view image's 4 corners
-        Ground coordinates: x-right, y-forward, z-up
-        The purpose of applying normalized transformation: 1. invariance in scale change
-                                                           2.Torch grid sample is based on normalized grids
-
-    :param top_view_region: a 4 X 2 list of (X, Y) indicating the top-view region corners in order:
-                            top-left, top-right, bottom-left, bottom-right
-    :param org_img_size: the size of original image size: [h, w]
-    :param crop_y: pixels croped from original img
-    :param resize_img_size: the size of image as network input: [h, w]
-    :param cam_pitch: camera pitch angle wrt ground plane
-    :param cam_height: camera height wrt ground plane in meters
-    :param K: camera intrinsic parameters
-    :return: H_im2ipm_norm: the normalized transformation from image to IPM image
-    """
-
-    if isinstance(E, np.ndarray):
-        H_g2im = homograpthy_g2im_extrinsic(E, K)
-    else:
-        # compute homography transformation from ground to image (only this depends on cam_pitch and cam height)
-        H_g2im = homograpthy_g2im(cam_pitch, cam_height, K)
-    # transform original image region to network input region
-    H_c = homography_crop_resize(org_img_size, crop_y, resize_img_size)
-    H_g2im = np.matmul(H_c, H_g2im)
-
-    # compute top-view corners' coordinates in image
-    x_2d, y_2d = homographic_transformation(H_g2im, top_view_region[:, 0], top_view_region[:, 1])
-    border_im = np.concatenate([x_2d.reshape(-1, 1), y_2d.reshape(-1, 1)], axis=1)
-
-    # compute the normalized transformation
-    border_im[:, 0] = border_im[:, 0] / resize_img_size[1]
-    border_im[:, 1] = border_im[:, 1] / resize_img_size[0]
-    border_im = np.float32(border_im)
-    dst = np.float32([[0, 0], [1, 0], [0, 1], [1, 1]])
-    # img to ipm
-    H_im2ipm_norm = cv2.getPerspectiveTransform(border_im, dst)
-    # ipm to im
-    H_ipm2im_norm = cv2.getPerspectiveTransform(dst, border_im)
-    return H_im2ipm_norm, H_ipm2im_norm
-
-
-def homography_ipmnorm2g(top_view_region):
-    src = np.float32([[0, 0], [1, 0], [0, 1], [1, 1]])
-    H_ipmnorm2g = cv2.getPerspectiveTransform(src, np.float32(top_view_region))
-    return H_ipmnorm2g
-
-
 def homograpthy_g2im(cam_pitch, cam_height, K):
     # transform top-view region to original image region
     R_g2c = np.array([[1, 0, 0],
@@ -320,60 +266,6 @@ def projective_transformation(Matrix, x, y, z):
     x_vals = trans[0, :]/trans[2, :]
     y_vals = trans[1, :]/trans[2, :]
     return x_vals, y_vals
-
-
-def transform_lane_gflat2g(h_cam, X_gflat, Y_gflat, Z_g):
-    """
-        Given X coordinates in flat ground space, Y coordinates in flat ground space, and Z coordinates in real 3D ground space
-        with projection matrix from 3D ground to flat ground, compute real 3D coordinates X, Y in 3D ground space.
-
-    :param P_g2gflat: a 3 X 4 matrix transforms lane form 3d ground x,y,z to flat ground x, y
-    :param X_gflat: X coordinates in flat ground space
-    :param Y_gflat: Y coordinates in flat ground space
-    :param Z_g: Z coordinates in real 3D ground space
-    :return:
-    """
-
-    X_g = X_gflat - X_gflat * Z_g / h_cam
-    Y_g = Y_gflat - Y_gflat * Z_g / h_cam
-
-    return X_g, Y_g
-
-
-def transform_lane_g2gflat(h_cam, X_g, Y_g, Z_g):
-    """
-        Given X coordinates in flat ground space, Y coordinates in flat ground space, and Z coordinates in real 3D ground space
-        with projection matrix from 3D ground to flat ground, compute real 3D coordinates X, Y in 3D ground space.
-
-    :param P_g2gflat: a 3 X 4 matrix transforms lane form 3d ground x,y,z to flat ground x, y
-    :param X_gflat: X coordinates in flat ground space
-    :param Y_gflat: Y coordinates in flat ground space
-    :param Z_g: Z coordinates in real 3D ground space
-    :return:
-    """
-
-    X_gflat = X_g * h_cam / (h_cam - Z_g)
-    Y_gflat = Y_g * h_cam / (h_cam - Z_g)
-
-    return X_gflat, Y_gflat
-
-
-def nms_1d(v):
-    """
-
-    :param v: a 1D numpy array
-    :return:
-    """
-    v_out = v.copy()
-    len = v.shape[0]
-    if len < 2:
-        return v
-    for i in range(len):
-        if i != 0 and v[i - 1] > v[i]:
-            v_out[i] = 0.
-        elif i != len-1 and v[i+1] > v[i]:
-            v_out[i] = 0.
-    return v_out
 
 
 def first_run(save_path):
@@ -625,73 +517,3 @@ def weights_init_orthogonal(m):
     elif classname.find('BatchNorm2d') != -1:
         init.normal_(m.weight.data, 1.0, 0.02)
         init.constant_(m.bias.data, 0.0)
-
-# multi-gpu helper function
-def unit_update_projection_extrinsic(args, extrinsics, intrinsics):
-    """
-        Unit function to Update transformation matrix based on ground-truth extrinsics
-        This function is "Mutually Exclusive" to the updates of M_inv from network prediction
-    """
-    batch_size = extrinsics.shape[0]
-    M_inv = torch.zeros(batch_size, 3, 3)
-    M = torch.zeros(batch_size, 3, 3)
-    for i in range(batch_size):
-        _M, _M_inv = homography_im2ipm_norm(args.top_view_region, np.array([args.org_h, args.org_w]),
-                                            args.crop_y, np.array([args.resize_h, args.resize_w]),
-                                            None, None, intrinsics[i].data.cpu().numpy(), extrinsics[i].data.cpu().numpy())
-        M_inv[i] = torch.from_numpy(_M_inv).type(torch.FloatTensor)
-        M[i] = torch.from_numpy(_M).float()
-    if not args.no_cuda:
-        M_inv = M_inv.cuda()
-        M = M.cuda()
-    return M_inv, M
-
-def unit_update_projection(args, cam_height, cam_pitch, intrinsics=None, extrinsics=None):
-    """
-        Unit function to Update transformation matrix based on ground-truth cam_height and cam_pitch
-        This function is "Mutually Exclusive" to the updates of M_inv from network prediction
-    :param args:
-    :param cam_height:
-    :param cam_pitch:
-    :return:
-    """
-    M_inv = torch.zeros(args.batch_size, 3, 3)
-    for i in range(args.batch_size):
-        _M, _M_inv = homography_im2ipm_norm(args.top_view_region, np.array([args.org_h, args.org_w]),
-                                            args.crop_y, np.array([args.resize_h, args.resize_w]),
-                                            cam_pitch[i].data.cpu().numpy(), cam_height[i].data.cpu().numpy(), args.K)
-        M_inv[i] = torch.from_numpy(_M_inv).type(torch.FloatTensor)
-    if not args.no_cuda:
-        M_inv = M_inv.cuda()
-    cam_height = cam_height
-    cam_pitch = cam_pitch
-    return M_inv, cam_height, cam_pitch
-
-def unit_update_projection_for_data_aug(args, aug_mats, _M_inv, _S_im_inv=None, _S_im=None, M=None):
-    """
-        Unit function to update transformation matrix when data augmentation have been applied, and the image augmentation matrix are provided
-        Need to consider both the cases of 1. when using ground-truth cam_height, cam_pitch, update M_inv
-                                            2. when cam_height, cam_pitch are online estimated, update H_c for later use
-    """
-    if not args.no_cuda:
-        aug_mats = aug_mats.cuda()
-
-    if _S_im_inv is None:
-        _S_im_inv = torch.from_numpy(np.array([[1/np.float(args.resize_w),                         0, 0],
-                                                    [                        0, 1/np.float(args.resize_h), 0],
-                                                    [                        0,                         0, 1]], dtype=np.float32)).cuda()
-    
-    if _S_im is None:
-        _S_im = torch.from_numpy(np.array([[args.resize_w,              0, 0],
-                                                [            0,  args.resize_h, 0],
-                                                [            0,              0, 1]], dtype=np.float32)).cuda()
-
-    for i in range(aug_mats.shape[0]):
-        # update H_c directly
-        # self.H_c[i] = torch.matmul(aug_mats[i], self.H_c[i])
-        # augmentation need to be applied in unnormalized image coords for M_inv
-        aug_mats[i] = torch.matmul(torch.matmul(_S_im_inv, aug_mats[i]), _S_im)
-        _M_inv[i] = torch.matmul(aug_mats[i], _M_inv[i])
-        M[i] = torch.matmul(M[i], torch.linalg.inv(aug_mats[i]))
-
-    return _M_inv, M

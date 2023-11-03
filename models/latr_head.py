@@ -86,14 +86,10 @@ class LATRHead(nn.Module):
             torch.from_numpy(args.anchor_y_steps).float())
         self.register_buffer('anchor_y_steps_dense',
             torch.from_numpy(args.anchor_y_steps_dense).float())
-        self.project_crit_t = project_crit.pop('type')
-        
+
         project_crit['reduction'] = 'none'
-        if 'L2' in self.project_crit_t:
-            self.project_crit = nn.L1Loss(reduction='none')
-        else:
-            self.project_crit = getattr(
-                nn, self.project_crit_t)(**project_crit)
+        self.project_crit = getattr(
+            nn, project_crit.pop('type'))(**project_crit)
 
         self.num_classes = num_classes
         self.embed_dims = embed_dims
@@ -112,6 +108,7 @@ class LATRHead(nn.Module):
         loss_reg['reduction'] = 'none'
         self.reg_crit = build_loss(loss_reg)
         self.cls_crit = build_loss(loss_cls)
+        self.bce_loss = build_nn_loss(loss_vis)
         self.sparse_ins = SparseInsDecoder(cfg=sparse_ins_decoder)
 
         self.depth_num = depth_num
@@ -178,7 +175,13 @@ class LATRHead(nn.Module):
         self._init_weights()
 
     def _init_weights(self):
-        pass
+        self.transformer.init_weights()
+        xavier_init(self.reference_points, distribution='uniform', bias=0)
+        if self.cls_crit.use_sigmoid:
+            bias_init = bias_init_with_prob(0.01)
+            for m in self.cls_branches:
+                nn.init.constant_(m[-1].bias, bias_init)
+        normal_(self.level_embeds)
 
     def forward(self, input_dict, is_training=True):
         output_dict = {}
@@ -291,7 +294,146 @@ class LATRHead(nn.Module):
             'all_line_preds': all_line_preds,
         })
         output_dict.update(sparse_output)
+
+        if is_training:
+            losses = self.get_loss(output_dict, input_dict)
+            project_loss = self.get_project_loss(
+                project_results, input_dict,
+                h=self.gt_project_h, w=self.gt_project_w)
+            losses['project_loss'] = \
+                self.project_loss_weight * project_loss
+            output_dict.update(losses)
         return output_dict
+
+    def get_project_loss(self, results, input_dict, h=20, w=30):
+        gt_lane = input_dict['ground_lanes_dense']
+        gt_ys = self.anchor_y_steps_dense.clone()
+        code_size = gt_ys.shape[0]
+        gt_xs = gt_lane[..., :code_size]
+        gt_zs = gt_lane[..., code_size : 2*code_size]
+        gt_vis = gt_lane[..., 2*code_size:3*code_size]
+        gt_ys = gt_ys[None, None, :].expand_as(gt_xs)
+        gt_points = torch.stack([gt_xs, gt_ys, gt_zs], dim=-1)
+
+        B = results[0].shape[0]
+        ref_3d_home = F.pad(gt_points, (0, 1), value=1)
+        coords_img = ground2img(
+            ref_3d_home,
+            h, w,
+            input_dict['lidar2img'],
+            input_dict['pad_shape'], mask=gt_vis)
+
+        all_loss = 0.
+        for projct_result in results:
+            projct_result = F.interpolate(
+                projct_result,
+                size=(h, w),
+                mode='nearest')
+            gt_proj = coords_img.clone()
+
+            mask = (gt_proj[:, -1, ...] > 0) * (projct_result[:, -1, ...] > 0)
+            diff_loss = self.project_crit(
+                projct_result[:, :3, ...],
+                gt_proj[:, :3, ...],
+            )
+            diff_y_loss = diff_loss[:, 1, ...]
+            diff_z_loss = diff_loss[:, 2, ...]
+            diff_loss = diff_y_loss * 0.1 + diff_z_loss
+            diff_loss = (diff_loss * mask).sum() / torch.clamp(mask.sum(), 1)
+            all_loss = all_loss + diff_loss
+
+        return all_loss / len(results)
+
+    def get_loss(self, output_dict, input_dict):
+        all_cls_pred = output_dict['all_cls_scores']
+        all_lane_pred = output_dict['all_line_preds']
+        gt_lanes = input_dict['ground_lanes']
+        all_xs_loss = 0.0
+        all_zs_loss = 0.0
+        all_vis_loss = 0.0
+        all_cls_loss = 0.0
+        matched_indices = output_dict['matched_indices']
+        num_layers = all_lane_pred.shape[0]
+
+        def single_layer_loss(layer_idx):
+            gcls_pred = all_cls_pred[layer_idx]
+            glane_pred = all_lane_pred[layer_idx]
+
+            glane_pred = glane_pred.view(
+                glane_pred.shape[0],
+                self.num_group,
+                self.num_query,
+                glane_pred.shape[-1])
+            gcls_pred = gcls_pred.view(
+                gcls_pred.shape[0],
+                self.num_group,
+                self.num_query,
+                gcls_pred.shape[-1])
+
+            per_xs_loss = 0.0
+            per_zs_loss = 0.0
+            per_vis_loss = 0.0
+            per_cls_loss = 0.0
+            batch_size = len(matched_indices[0])
+
+            for b_idx in range(len(matched_indices[0])):
+                for group_idx in range(self.num_group):
+                    pred_idx = matched_indices[group_idx][b_idx][0]
+                    gt_idx = matched_indices[group_idx][b_idx][1]
+
+                    cls_pred = gcls_pred[:, group_idx, ...]
+                    lane_pred = glane_pred[:, group_idx, ...]
+
+                    if gt_idx.shape[0] < 1:
+                        cls_target = cls_pred.new_zeros(cls_pred[b_idx].shape[0]).long()
+                        cls_loss = self.cls_crit(cls_pred[b_idx], cls_target)
+                        per_cls_loss = per_cls_loss + cls_loss
+                        per_xs_loss = per_xs_loss + 0.0 * lane_pred[b_idx].mean()
+                        continue
+
+                    pos_lane_pred = lane_pred[b_idx][pred_idx]
+                    gt_lane = gt_lanes[b_idx][gt_idx]
+
+                    pred_xs = pos_lane_pred[:, :self.code_size]
+                    pred_zs = pos_lane_pred[:, self.code_size : 2*self.code_size]
+                    pred_vis = pos_lane_pred[:, 2*self.code_size:]
+                    gt_xs = gt_lane[:, :self.code_size]
+                    gt_zs = gt_lane[:, self.code_size : 2*self.code_size]
+                    gt_vis = gt_lane[:, 2*self.code_size:3*self.code_size]
+
+                    loc_mask = gt_vis > 0
+                    xs_loss = self.reg_crit(pred_xs, gt_xs)
+                    zs_loss = self.reg_crit(pred_zs, gt_zs)
+                    xs_loss = (xs_loss * loc_mask).sum() / torch.clamp(loc_mask.sum(), 1)
+                    zs_loss = (zs_loss * loc_mask).sum() / torch.clamp(loc_mask.sum(), 1)
+                    vis_loss = self.bce_loss(pred_vis, gt_vis)
+
+                    cls_target = cls_pred.new_zeros(cls_pred[b_idx].shape[0]).long()
+                    cls_target[pred_idx] = torch.argmax(
+                        gt_lane[:, 3*self.code_size:], dim=1)
+                    cls_loss = self.cls_crit(cls_pred[b_idx], cls_target)
+
+                    per_xs_loss += xs_loss
+                    per_zs_loss += zs_loss
+                    per_vis_loss += vis_loss
+                    per_cls_loss += cls_loss
+
+            return tuple(map(lambda x: x / batch_size / self.num_group,
+                             [per_xs_loss, per_zs_loss, per_vis_loss, per_cls_loss]))
+
+        all_xs_loss, all_zs_loss, all_vis_loss, all_cls_loss = multi_apply(
+            single_layer_loss, range(all_lane_pred.shape[0]))
+        all_xs_loss = sum(all_xs_loss) / num_layers
+        all_zs_loss = sum(all_zs_loss) / num_layers
+        all_vis_loss = sum(all_vis_loss) / num_layers
+        all_cls_loss = sum(all_cls_loss) / num_layers
+
+        return dict(
+            all_xs_loss=self.xs_loss_weight * all_xs_loss,
+            all_zs_loss=self.zs_loss_weight * all_zs_loss,
+            all_vis_loss=self.vis_loss_weight * all_vis_loss,
+            all_cls_loss=self.cls_loss_weight * all_cls_loss,
+        )
 
     @staticmethod
     def get_reference_points(H, W, bs=1, device='cuda', dtype=torch.float):
@@ -306,3 +448,7 @@ class LATRHead(nn.Module):
         ref_2d = torch.stack((ref_x, ref_y), -1)
         ref_2d = ref_2d.repeat(bs, 1, 1) 
         return ref_2d
+
+def build_nn_loss(loss_cfg):
+    crit_t = loss_cfg.pop('type')
+    return getattr(nn, crit_t)(**loss_cfg)

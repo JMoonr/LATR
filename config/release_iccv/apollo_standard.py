@@ -20,6 +20,12 @@ output_dir = 'apollo'
 num_category = 2
 max_lanes = 6
 
+T_max = 30
+eta_min = 1e-6
+clip_grad_norm = 20
+nepochs = 210
+eval_freq = 1
+
 h_org, w_org = 1080, 1920
 
 batch_size = 8
@@ -69,6 +75,11 @@ latr_cfg = dict(
         relu_before_extra_convs=True
     ),
     head=dict(
+        xs_loss_weight=2.0,
+        zs_loss_weight=10.0,
+        vis_loss_weight=1.0,
+        cls_loss_weight=10,
+        project_loss_weight=1.0,
         pt_as_query=True,
         num_pt_per_line=num_pt_per_line,
     ),
@@ -138,9 +149,17 @@ sparse_ins_decoder=Config(
             num_convs=4,
             output_iam=True,
             scale_factor=1.,
+            ce_weight=2.0,
+            mask_weight=5.0,
+            dice_weight=2.0,
+            objectness_weight=1.0,
         ),
         sparse_decoder_weight=5.0,
 ))
 
 resize_h = 720
 resize_w = 960
+optimizer_cfg = dict(
+    type='AdamW',
+    lr=2e-4,
+    weight_decay=0.01)

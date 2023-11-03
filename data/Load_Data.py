@@ -36,7 +36,7 @@ class LaneDataset(Dataset):
         It is assumed the dataset provides accurate visibility labels. Preparing ground-truth tensor depends on it.
     """
     # dataset_base_dir is image path, json_file_path is json file path,
-    def __init__(self, dataset_base_dir, json_file_path, args, data_aug=False, save_std=False):
+    def __init__(self, dataset_base_dir, json_file_path, args, data_aug=False):
         """
 
         :param dataset_info_file: json file list

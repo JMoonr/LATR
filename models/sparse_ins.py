@@ -4,8 +4,8 @@ import torch
 import torch.nn as nn
 from torch.nn import init
 import torch.nn.functional as F
-from fvcore.nn.weight_init import c2_msra_fill 
-
+from fvcore.nn.weight_init import c2_msra_fill, c2_xavier_fill
+from .sparse_inst_loss import SparseInstCriterion, SparseInstMatcher
 
 def _make_stack_3x3_convs(num_convs, in_channels, out_channels):
     convs = []
@@ -70,6 +70,21 @@ class InstanceBranch(nn.Module):
         self.objectness = nn.Linear(
             dim, 1)
         self.prior_prob = 0.01
+        self._init_weights()
+
+    def _init_weights(self):
+        for m in self.inst_convs.modules():
+            if isinstance(m, nn.Conv2d):
+                c2_msra_fill(m)
+        bias_value = -math.log((1 - self.prior_prob) / self.prior_prob)
+        for module in [self.iam_conv, self.cls_score]:
+            init.constant_(module.bias, bias_value)
+        init.normal_(self.iam_conv.weight, std=0.01)
+        init.normal_(self.cls_score.weight, std=0.01)
+
+        init.normal_(self.mask_kernel.weight, std=0.01)
+        init.constant_(self.mask_kernel.bias, 0.0)
+        c2_xavier_fill(self.fc)
 
     def forward(self, seg_features, is_training=True):
         out = {}
@@ -125,6 +140,15 @@ class InstanceBranch(nn.Module):
         out.update(dict(
             iam_prob=iam_prob,
             inst_features=inst_features))
+
+        if self.training:
+            pred_logits = self.cls_score(inst_features)
+            pred_kernel = self.mask_kernel(inst_features)
+            pred_scores = self.objectness(inst_features)
+            out.update(dict(
+                pred_logits=pred_logits,
+                pred_kernel=pred_kernel,
+                pred_scores=pred_scores))
         return out
 
 class SparseInsDecoder(nn.Module):
@@ -137,6 +161,15 @@ class SparseInsDecoder(nn.Module):
         self.inst_branch = InstanceBranch(cfg.decoder, in_channels)
         # dim, num_convs, kernel_dim, in_channels
         self.mask_branch = MaskBranch(cfg.decoder, in_channels)
+        self.sparse_inst_crit = SparseInstCriterion(
+            num_classes=cfg.decoder.num_classes,
+            matcher=SparseInstMatcher(),
+            cfg=cfg)
+        self._init_weights()
+
+    def _init_weights(self):
+        self.inst_branch._init_weights()
+        self.mask_branch._init_weights()
 
     @torch.no_grad()
     def compute_coordinates(self, x):
@@ -156,4 +189,84 @@ class SparseInsDecoder(nn.Module):
         inst_output = self.inst_branch(
             features, is_training=is_training)
         output.update(inst_output)
+
+        if is_training:
+            mask_features = self.mask_branch(features)
+            pred_kernel = inst_output['pred_kernel']
+            N = pred_kernel.shape[1]
+            B, C, H, W = mask_features.shape
+
+            pred_masks = torch.bmm(pred_kernel, mask_features.view(
+            B, C, H * W)).view(B, N, H, W)
+            pred_masks = F.interpolate(
+                pred_masks, scale_factor=self.scale_factor,
+                mode='bilinear', align_corners=False)
+            output.update(dict(
+                pred_masks=pred_masks))
+        
+        if self.training:
+            sparse_inst_losses, matched_indices = self.loss(
+                    output,
+                    lane_idx_map=kwargs.get('lane_idx_map'),
+                    input_shape=kwargs.get('input_shape')
+            )
+            for k, v in sparse_inst_losses.items():
+                sparse_inst_losses[k] = self.sparse_decoder_weight * v
+            output.update(sparse_inst_losses)
+            output['matched_indices'] = matched_indices
+        return output
+
+    def loss(self, output, lane_idx_map, input_shape):
+        """
+        output : from self.forward
+        lane_idx_map : instance-level segmentation map, [20, H, W] where 20=max_lanes
+        """
+        pred_masks = output['pred_masks']
+        pred_masks = output['pred_masks'].view(
+            pred_masks.shape[0],
+            self.inst_branch.num_group,
+            self.inst_branch.num_mask,
+            *pred_masks.shape[2:])
+        pred_logits = output['pred_logits']
+        pred_logits = output['pred_logits'].view(
+            pred_logits.shape[0],
+            self.inst_branch.num_group,
+            self.inst_branch.num_mask,
+            *pred_logits.shape[2:])
+        pred_scores = output['pred_scores']
+        pred_scores = output['pred_scores'].view(
+            pred_scores.shape[0],
+            self.inst_branch.num_group,
+            self.inst_branch.num_mask,
+            *pred_scores.shape[2:])
+
+        out = {}
+        all_matched_indices = []
+        for group_idx in range(self.inst_branch.num_group):
+            sparse_inst_losses, matched_indices = \
+                self.sparse_inst_crit(
+                    outputs=dict(
+                        pred_masks=pred_masks[:, group_idx, ...].contiguous(),
+                        pred_logits=pred_logits[:, group_idx, ...].contiguous(),
+                        pred_scores=pred_scores[:, group_idx, ...].contiguous(),
+                    ),
+                    targets=self.prepare_targets(lane_idx_map),
+                    input_shape=input_shape, # seg_bev
+                )
+            for k, v in sparse_inst_losses.items():
+                out['%s_%d' % (k, group_idx)] = v
+            all_matched_indices.append(matched_indices)
+        return out, all_matched_indices
+
+    def prepare_targets(self, targets):
+        new_targets = []
+        for targets_per_image in targets:
+            target = {}
+            cls_labels = targets_per_image.flatten(-2).max(-1)[0]
+            pos_mask = cls_labels > 0
+
+            target["labels"] = cls_labels[pos_mask].long()
+            target["masks"] = targets_per_image[pos_mask] > 0
+            new_targets.append(target)
+        return new_targets
         return output

@@ -4,7 +4,7 @@ Official PyTorch implementation of [LATR: 3D Lane Detection from Monocular Image
 
 ![fig2](/assets/fig2.png)  
 
-- [ ] Training code [Before Nov.]
+- [x] Training code
 - [x] Evaluation code
 
 ## Environments
@@ -138,7 +138,7 @@ This library is inspired by [OpenLane](https://github.com/OpenDriveLab/PersForme
 
 
 ## Citation
-If you find LATR is useful, please cite:
+If you find LATR is useful for your research, please consider citing the paper:
 
 ```tex
 @article{luo2023latr,

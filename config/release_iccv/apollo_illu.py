@@ -14,17 +14,23 @@ std = [0.229, 0.224, 0.225]
 
 dataset_name = 'apollo'
 dataset = 'illus_chg'
-data_dir = osp.join('./3D_Lane_Synthetic_Dataset/data_splits', dataset)
-dataset_dir = './data/Apollo_Sim_3D_Lane_Release'
+data_dir = osp.join('./data/apollosyn_gen-lanenet/data_splits', dataset)
+dataset_dir = './data/apollosyn_gen-lanenet/Apollo_Sim_3D_Lane_Release'
 output_dir = 'apollo'
 num_category = 2
 max_lanes = 6
+
+T_max = 30
+eta_min = 1e-6
+clip_grad_norm = 20
+nepochs = 210
+eval_freq = 1
 
 h_org, w_org = 1080, 1920
 
 batch_size = 8
 nworkers = 10
-pos_threshold = 0.3
+pos_threshold = 0.5
 top_view_region = np.array([
     [-10, 103], [10, 103], [-10, 3], [10, 3]])
 enlarge_length = 20
@@ -37,6 +43,12 @@ position_range = [
     5.]
 anchor_y_steps = np.linspace(3, 103, 20)
 num_y_steps = len(anchor_y_steps)
+
+photo_aug = dict(
+    brightness_delta=32,
+    contrast_range=(0.5, 1.5),
+    saturation_range=(0.5, 1.5),
+    hue_delta=18)
 
 _dim_ = 256
 num_query = 12
@@ -69,6 +81,11 @@ latr_cfg = dict(
         relu_before_extra_convs=True
     ),
     head=dict(
+        xs_loss_weight=2.0,
+        zs_loss_weight=10.0,
+        vis_loss_weight=1.0,
+        cls_loss_weight=10,
+        project_loss_weight=1.0,
         pt_as_query=True,
         num_pt_per_line=num_pt_per_line,
     ),
@@ -138,9 +155,18 @@ sparse_ins_decoder=Config(
             num_convs=4,
             output_iam=True,
             scale_factor=1.,
+            ce_weight=2.0,
+            mask_weight=5.0,
+            dice_weight=2.0,
+            objectness_weight=1.0,
         ),
         sparse_decoder_weight=5.0,
 ))
 
 resize_h = 720
 resize_w = 960
+
+optimizer_cfg = dict(
+    type='AdamW',
+    lr=2e-4,
+    weight_decay=0.01)
