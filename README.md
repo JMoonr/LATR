@@ -1,15 +1,37 @@
-# [ICCV2023 Oral] LATR: 3D Lane Detection from Monocular Images with Transformer
+<br />
+<p align="center">
+  
+  <h3 align="center"><strong>LATR: 3D Lane Detection from Monocular Images with Transformer</strong></h3>
 
-Official PyTorch implementation of [LATR: 3D Lane Detection from Monocular Images with Transformer](https://arxiv.org/abs/2308.04583)
+<p align="center">
+  <a href="https://arxiv.org/abs/2308.04583" target='_blank'>
+    <!-- <img src="https://img.shields.io/badge/arXiv-%F0%9F%93%83-yellow"> -->
+    <img src="https://img.shields.io/badge/arXiv-2308.04583-b31b1b.svg">
+  </a>
+  <a href="" target='_blank'>
+    <img src="https://visitor-badge.laobi.icu/badge?page_id=JMoonr.LATR&left_color=gray&right_color=yellow">
+  </a>
+    <a href="https://github.com/JMoonr/LATR" target='_blank'>
+     <img src="https://img.shields.io/github/stars/JMoonr/LATR?style=social">
+  </a>
+  
+</p>
+
+
+This is the official PyTorch implementation of [LATR: 3D Lane Detection from Monocular Images with Transformer](https://arxiv.org/abs/2308.04583).
 
 ![fig2](/assets/fig2.png)  
 
-- [x] Training code
-- [x] Evaluation code
+## News
+
+  - **2024-01-15** :confetti_ball: Our new work [DV-3DLane: End-to-end Multi-modal 3D Lane Detection with Dual-view Representation](https://openreview.net/pdf?id=l1U6sEgYkb) is accepted by ICLR2024.
+
+  - **2023-08-12** :tada: LATR is accepted as an Oral presentation at ICCV2023! :sparkles:
+
 
 ## Environments
 
-Please follow [install](./docs/install.md) to install required packages.
+To set up the required packages, please refer to the [installation guide](./docs/install.md).
 
 ## Data
 
@@ -17,7 +39,7 @@ Please follow [data preparation](./docs/data_preparation.md) to download dataset
 
 ## Pretrained Models
 
-Note that the performance of pretrained model is different from our paper due to code refactoration and optimization. All models are uploaded to [google drive](https://drive.google.com/drive/folders/1AhvLvE84vayzFxa0teRHYRdXz34ulzjB?usp=sharing).
+Note that the performance of pretrained model is higher than our paper due to code refactoration and optimization. All models are uploaded to [google drive](https://drive.google.com/drive/folders/1AhvLvE84vayzFxa0teRHYRdXz34ulzjB?usp=sharing).
 
 | Dataset | Pretrained | Metrics | md5 |
 | - | - | - | - |
@@ -29,9 +51,13 @@ Note that the performance of pretrained model is different from our paper due to
 | Apollo-visual | [Google Drive](https://drive.google.com/file/d/1ZzaUODYK2dyiG_2bDXe5tiutxNvc71M2/view?usp=sharing) | F1=0.9611 | cec4aa567c264c84808f3c32f5aace82 |
 
 
-## Train & Evaluation
+## Evaluation
 
-Please download [pretrain models](#pretrained-models) into `./pretrained_models` first and then follow [train and evaluation](./docs/train_eval.md#evaluation) for evaluation.
+You can download the [pretrained models](#pretrained-models) to `./pretrained_models` directory and refer to the [eval guide](./docs/train_eval.md#evaluation) for evaluation.
+
+## Train
+
+Please follow the steps in [training](./docs/train_eval.md#train) to train the model.
 
 ## Benchmark
 
