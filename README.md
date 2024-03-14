@@ -23,22 +23,18 @@ This is the official PyTorch implementation of [LATR: 3D Lane Detection from Mon
 ![fig2](/assets/fig2.png)  
 
 ## News
-
-  - **2024-01-15** :confetti_ball: Our new work [DV-3DLane: End-to-end Multi-modal 3D Lane Detection with Dual-view Representation](https://openreview.net/pdf?id=l1U6sEgYkb) is accepted by ICLR2024.
+  - **2024-01-15** :confetti_ball: Our new work [DV-3DLane: End-to-end Multi-modal 3D Lane Detection with Dual-view Representation](https://github.com/JMoonr/dv-3dlane) is accepted by ICLR2024.
 
   - **2023-08-12** :tada: LATR is accepted as an Oral presentation at ICCV2023! :sparkles:
 
 
 ## Environments
-
 To set up the required packages, please refer to the [installation guide](./docs/install.md).
 
 ## Data
-
 Please follow [data preparation](./docs/data_preparation.md) to download dataset.
 
 ## Pretrained Models
-
 Note that the performance of pretrained model is higher than our paper due to code refactoration and optimization. All models are uploaded to [google drive](https://drive.google.com/drive/folders/1AhvLvE84vayzFxa0teRHYRdXz34ulzjB?usp=sharing).
 
 | Dataset | Pretrained | Metrics | md5 |
@@ -52,11 +48,9 @@ Note that the performance of pretrained model is higher than our paper due to co
 
 
 ## Evaluation
-
 You can download the [pretrained models](#pretrained-models) to `./pretrained_models` directory and refer to the [eval guide](./docs/train_eval.md#evaluation) for evaluation.
 
 ## Train
-
 Please follow the steps in [training](./docs/train_eval.md#train) to train the model.
 
 ## Benchmark
