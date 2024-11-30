@@ -81,5 +81,5 @@ CUDA_VISIBLE_DEVICES='0,1,2,3' python -m torch.distributed.launch --nproc_per_no
 - Visual Variations
 
 ```bash
-CUDA_VISIBLE_DEVICES='0,1,2,3' python -m torch.distributed.launch --master_port=29284 --nproc_per_node 4 main.py --config config/release_iccv/apollo_standard.py --cfg-options evaluate=true eval_ckpt=pretrained_models/apollo_illu.pth
+CUDA_VISIBLE_DEVICES='0,1,2,3' python -m torch.distributed.launch --master_port=29284 --nproc_per_node 4 main.py --config config/release_iccv/apollo_illu.py --cfg-options evaluate=true eval_ckpt=pretrained_models/apollo_illu.pth
 ```

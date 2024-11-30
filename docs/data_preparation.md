@@ -5,7 +5,7 @@
 Follow [OpenLane](https://github.com/OpenDriveLab/PersFormer_3DLane#dataset) to download dataset and then link it under `data` directory.
 
 ```bash
-cd data && makir openlane && cd openlane
+cd data && mkdir openlane && cd openlane
 ln -s ${OPENLANE_PATH}/images .
 ln -s ${OPENLANE_PATH}/lane3d_1000 .
 ```
